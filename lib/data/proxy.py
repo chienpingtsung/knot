@@ -1,9 +1,15 @@
+import logging
 import random
 from itertools import count
 
+import numpy as np
+from easydict import EasyDict
 from torch.utils.data import Dataset
 
+from lib.dataset.base import VideoDataset
 from lib.util.config import hyper
+
+logger = logging.getLogger(__name__)
 
 
 class VideoDatasetProxy(Dataset):
@@ -14,18 +20,60 @@ class VideoDatasetProxy(Dataset):
         self.processing = processing
 
         self.weights = hyper.weights if hyper.weights else [len(d) for d in datasets]
-        self.max_interval = hyper.max_interval
         self.num_template = hyper.num_template
         self.num_search = hyper.num_search
+        self.max_interval = hyper.max_interval
+        self.manner = hyper.manner
+
+    def __getitem__(self, item):
+        for c in count():
+            if c > 100:
+                logger.warning('Data sampling has been over 100 loops.')
+
+            dataset = random.choices(self.datasets, self.weights)[0]
+            video_id, anno, valid, visible = self.sample_video_id(dataset)
+
+            if isinstance(dataset, VideoDataset):
+                sample_func = {'causal': lambda *args, **kwargs: self.causal_manner_sample(*args, **kwargs),
+                               'trident': lambda *args, **kwargs: self.trident_manner_sample(*args, **kwargs)}
+                template_ids, search_ids = sample_func[self.manner](np.ones_like(valid))  # TODO: Use all data.
+            else:
+                template_ids = [0] * self.num_template
+                search_ids = [0] * self.num_search
+
+            template_frames, template_anno = dataset.get_frames(video_id, template_ids, anno)
+            search_frames, search_anno = dataset.get_frames(video_id, search_ids, anno)
+
+            data = EasyDict({'template_frames': template_frames,
+                             'template_bbox': template_anno.groundtruth,
+                             'template_visible': (valid & visible)[template_ids, ...],
+                             'search_frames': search_frames,
+                             'search_bbox': search_anno.groundtruth,
+                             'search_visible': (valid & visible)[search_ids, ...],
+                             'nlp': template_anno.nlp})
+
+            if self.processing:
+                try:
+                    data = self.processing(data)
+                except:
+                    continue
+
+            return data
 
     def sample_video_id(self, dataset):
         for c in count():
+            if c > 100:
+                logger.warning('Video id sampling has been over 100 loops.')
+
             video_id = random.randrange(len(dataset))
             anno = dataset.get_annotation(video_id)
 
             valid = (anno.groundtruth[..., 2] > 0) & (anno.groundtruth[..., 3] > 0)
             visible = 1 - (anno.occlusion | anno.out_of_view)
-            return video_id, anno
+
+            if visible.sum() > 2 * (self.num_template + self.num_search) and len(visible) > 20 or \
+                    not isinstance(dataset, VideoDataset):
+                return video_id, anno, valid, visible
 
     def sample_frame_ids(self, condition, num=1, start=None, stop=None):
         if start is None or start < 0:
@@ -39,49 +87,43 @@ class VideoDatasetProxy(Dataset):
             return random.choices(optional_ids, k=num)
         return None
 
-    def transform_optional_ids(self, condition):
-        optional_ids = [i for i in range(len(condition)) if condition[i]]
-        if len(optional_ids) < self.num_template + self.num_search:
-            raise Exception('Not enough optional frame ids for num_template and num_search.')
-
-        return optional_ids
-
     def causal_manner_sample(self, condition):
-        optional_ids = self.transform_optional_ids(condition)
+        for c in count(0, 5):
+            if c > 1000:
+                logger.warning('Interval has been over 1000 frames.')
 
-        base_frame = random.randrange(self.num_template - 1, len(optional_ids) - self.num_search)
+            base_template = self.sample_frame_ids(condition, num=1,
+                                                  start=self.num_template - 1,
+                                                  stop=len(condition) - self.num_search)[0]
+            prev_templates = self.sample_frame_ids(condition, num=self.num_template - 1,
+                                                   start=base_template - self.max_interval - c)
+            if prev_templates is None:
+                continue
 
-        template_ids = []
-        if self.num_template > 1:
-            start = 0
-            for i in range(1, base_frame):
-                start = i
+            searches = self.sample_frame_ids(condition, num=self.num_search,
+                                             start=base_template + 1,
+                                             stop=base_template + 1 + self.max_interval + c)
+            if searches is None:
+                continue
 
-                if optional_ids[i] + self.max_interval > optional_ids[base_frame]:
-                    break
-
-            template_ids = random.choices(optional_ids[start:base_frame], k=self.num_template - 1)
-
-        template_ids.append(optional_ids[base_frame])
-
-        stop = base_frame + 2
-        for i in range(base_frame + 2, len(optional_ids)):
-            stop = i + 1
-
-            if optional_ids[base_frame] + self.max_interval < optional_ids[i]:
-                break
-
-        search_ids = random.choices(optional_ids[base_frame + 1:stop], k=self.num_search)
-
-        return sorted(template_ids), sorted(search_ids)
+            prev_templates.append(base_template)
+            return sorted(prev_templates), sorted(searches)
 
     def trident_manner_sample(self, condition):
-        optional_ids = self.transform_optional_ids(condition)
+        for c in count():
+            if c > 100:
+                logger.warning('Frame sampling has been over 100 loops.')
 
-        reverse = random.random() < 0.5
+            static_template = self.sample_frame_ids(condition, num=1)[0]
+            search = self.sample_frame_ids(condition, num=1)[0]
 
-        if reverse:
-            optional_ids = reversed(optional_ids)
+            if static_template < search:
+                start, stop = max(static_template, search - self.max_interval), search
+            else:
+                start, stop = search, min(static_template, search + self.max_interval)
 
-        static_template = random.randrange(len(optional_ids) - 2)
-        search = random.randrange()
+            online_template = self.sample_frame_ids(condition, num=1, start=start, stop=stop)
+            if online_template is None:
+                continue
+
+            return [static_template, online_template[0]], [search]
