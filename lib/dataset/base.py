@@ -13,7 +13,7 @@ class VideoDataset(abc.ABC):
         return len(self.video_list)
 
     @abc.abstractmethod
-    def get_frames(self, video_id, frame_ids):
+    def get_frames(self, video_id, frame_ids, anno=None):
         pass
 
     @abc.abstractmethod
