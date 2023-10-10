@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import pandas
 from PIL import Image
 from easydict import EasyDict
@@ -40,10 +41,22 @@ class LaSOT(VideoDataset):
 
         return video_list
 
-    def get_frames(self, video_id, frame_ids):
+    def get_frames(self, video_id, frame_ids, anno=None):
         video_path = self.video_list[video_id].joinpath('img')
 
-        return [Image.open(video_path.joinpath(f'{id + 1:08}.jpg')) for id in frame_ids]
+        frames = [Image.open(video_path.joinpath(f'{id + 1:08}.jpg')) for id in frame_ids]
+
+        if anno is None:
+            anno = self.get_annotation(video_id)
+
+        frames_anno = EasyDict()
+        for key, value in anno.items():
+            if isinstance(value, np.ndarray):
+                frames_anno[key] = value[frame_ids, ...].copy()
+            else:
+                frames_anno[key] = value
+
+        return frames, frames_anno
 
     def get_annotation(self, video_id):
         video_path = self.video_list[video_id]
