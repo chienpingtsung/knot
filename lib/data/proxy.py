@@ -36,7 +36,7 @@ class VideoDatasetProxy(Dataset):
             if isinstance(dataset, VideoDataset):
                 sample_func = {'causal': lambda *args, **kwargs: self.causal_manner_sample(*args, **kwargs),
                                'trident': lambda *args, **kwargs: self.trident_manner_sample(*args, **kwargs)}
-                template_ids, search_ids = sample_func[self.manner](valid & visible)
+                template_ids, search_ids = sample_func[self.manner](np.ones_like(valid))
             else:
                 template_ids = [0] * self.num_template
                 search_ids = [0] * self.num_search
