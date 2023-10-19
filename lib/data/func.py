@@ -40,6 +40,19 @@ def crop_square_from_image_by_box(image, box, search_area_factor, output_size=No
     return square, resize_factor
 
 
+def resize_and_pad(image, size):
+    *_, h, w = image.shape
+    scale = size / max(h, w)
+    h, w = int(h * scale), int(w * scale)
+
+    image = functional.resize(image, (h, w), antialias=True)
+
+    right = size - w
+    bottom = size - h
+
+    return functional.pad(image, [0, 0, right, bottom])
+
+
 # =================
 # = Box Operators =
 # =================
