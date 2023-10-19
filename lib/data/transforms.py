@@ -18,9 +18,9 @@ class ToTensor:
     def __call__(self, data):
         ret = EasyDict()
         for key, value in data.items():
-            if isinstance(value, list):
+            if 'frames' in key:
                 ret[key] = [functional.to_tensor(f) for f in value]
-            elif isinstance(value, np.ndarray):
+            elif 'bbox' in key:
                 ret[key] = torch.Tensor(value)
             else:
                 ret[key] = value
