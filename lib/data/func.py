@@ -50,7 +50,7 @@ def resize_and_pad(image, size):
     right = size - w
     bottom = size - h
 
-    return functional.pad(image, [0, 0, right, bottom])
+    return functional.pad(image, [0, 0, right, bottom]), scale
 
 
 # =================
