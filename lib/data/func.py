@@ -45,7 +45,7 @@ def resize_and_pad(image, size):
     scale = size / max(h, w)
     h, w = int(h * scale), int(w * scale)
 
-    image = functional.resize(image, (h, w), antialias=True)
+    image = functional.resize(image, [h, w], antialias=True)
 
     right = size - w
     bottom = size - h
