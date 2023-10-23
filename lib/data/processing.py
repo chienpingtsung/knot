@@ -57,7 +57,7 @@ class Processing(BaseProcessing):
                 frame, resize_factor = func.crop_square_from_image_by_box(frame, box_jit, area_factor, size)
             else:
                 *_, h, w = frame.shape
-                box_jit = torch.Tensor([0, 0, w, h])
+                box_jit = torch.Tensor([0, 0, max(h, w), max(h, w)])
                 frame, resize_factor = func.resize_and_pad(frame, size)
             crop_frames.append(frame)
 
