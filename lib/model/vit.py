@@ -120,7 +120,8 @@ class VisionTransformer(models.VisionTransformer):
         if weight_init != 'skip':
             self.init_weights(weight_init)
 
-    def forward(self, x_t, x_s):
+    def forward(self, x):
+        x_t, x_s = x
         x_t = self.patch_embed(x_t) + self.pos_embed_t
         x_s = self.patch_embed(x_s) + self.pos_embed_s
         x = torch.cat([x_t, x_s], dim=1)
