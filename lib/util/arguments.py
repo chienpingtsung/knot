@@ -1,5 +1,7 @@
 import argparse
 
+import torch
+
 
 def train_parse_args():
     parser = argparse.ArgumentParser()
@@ -10,4 +12,7 @@ def train_parse_args():
     parser.add_argument('--batch_size', type=int)
     parser.add_argument('--scout', type=int)
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    args.batch_size *= torch.cuda.device_count() if torch.cuda.is_available() else 1
+
+    return args
