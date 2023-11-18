@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from easydict import EasyDict
 from torchvision.transforms import functional
+from transformers import BertTokenizer
 
 
 class Compose:
@@ -15,6 +16,13 @@ class Compose:
 
 
 class ToTensor:
+    def __init__(self, pretrained_nl_model, padding, trunc, max_len, ret_t):
+        self.tokenizer = BertTokenizer.from_pretrained(pretrained_nl_model)
+        self.padding = padding
+        self.trunc = trunc
+        self.max_len = max_len
+        self.ret_t = ret_t
+
     def __call__(self, data):
         ret = EasyDict()
         for key, value in data.items():
@@ -22,6 +30,12 @@ class ToTensor:
                 ret[key] = [functional.to_tensor(f) for f in value]
             elif isinstance(value, np.ndarray):
                 ret[key] = torch.Tensor(value)
+            elif isinstance(value, str):
+                ret[key] = self.tokenizer(value,
+                                          padding=self.padding,
+                                          truncation=self.trunc,
+                                          max_length=self.max_len,
+                                          return_tensors='pt')
             else:
                 ret[key] = value
         return ret
