@@ -127,3 +127,6 @@ class VideoDatasetProxy(Dataset):
                 continue
 
             return [static_template, online_template[0]], [search]
+
+def collate_fn():
+    pass
