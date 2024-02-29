@@ -5,13 +5,12 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-def get_device():
-    logger.info(f'{torch.cuda.device_count()} cuda device(s) available.')
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    logger.info(f'Using {device} device(s).')
+def getDevice(force_cpu=False):
+    device = torch.device('cuda' if torch.cuda.is_available() and not force_cpu else 'cpu')
+    logger.info(f'Using {device} device. (Notice: {torch.cuda.device_count()} cuda device available.)')
     return device
 
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
-    get_device()
+    getDevice()
