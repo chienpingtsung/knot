@@ -25,6 +25,12 @@ class VideoDatasetProxy(Dataset):
         self.max_interval = hyper.max_interval
         self.manner = hyper.manner
 
+    def __len__(self):
+        total = 0
+        for dataset in self.datasets:
+            total += len(dataset)
+        return total
+
     def __getitem__(self, item):
         for c in count():
             if c > 100:
