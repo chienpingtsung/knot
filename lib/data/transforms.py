@@ -27,7 +27,7 @@ class ToTensor:
         ret = EasyDict()
         for key, value in data.items():
             if isinstance(value, list):
-                ret[key] = [functional.to_tensor(f) for f in value]
+                ret[key] = torch.stack([functional.to_tensor(f) for f in value])
             elif isinstance(value, np.ndarray):
                 ret[key] = torch.Tensor(value)
             elif isinstance(value, str):

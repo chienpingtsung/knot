@@ -64,7 +64,7 @@ class Processing(BaseProcessing):
             box = func.transform_box_relative(box, box_jit, size, resize_factor, normalize=True)
             crop_bbox.append(box)
 
-        return crop_frames, crop_bbox
+        return torch.stack(crop_frames), torch.stack(crop_bbox)
 
     def __call__(self, data):
         if self.joint_trans:
