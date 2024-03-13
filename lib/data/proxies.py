@@ -3,7 +3,8 @@ import random
 from itertools import count
 
 import numpy as np
-from easydict import EasyDict
+import torch
+from easydict import EasyDict as edict
 from torch.utils.data import Dataset
 
 from lib.dataset.base import VideoDataset
@@ -50,13 +51,13 @@ class VideoDatasetProxy(Dataset):
             template_frames, template_anno = dataset.get_frames(video_id, template_ids, anno)
             search_frames, search_anno = dataset.get_frames(video_id, search_ids, anno)
 
-            data = EasyDict({'template_frames': template_frames,
-                             'template_bbox': template_anno.groundtruth,
-                             'template_visible': (valid & visible)[template_ids, ...],
-                             'search_frames': search_frames,
-                             'search_bbox': search_anno.groundtruth,
-                             'search_visible': (valid & visible)[search_ids, ...],
-                             'nlp': template_anno.nlp})
+            data = edict({'template_frames': template_frames,
+                          'template_bbox': template_anno.groundtruth,
+                          'template_visible': (valid & visible)[template_ids, ...],
+                          'search_frames': search_frames,
+                          'search_bbox': search_anno.groundtruth,
+                          'search_visible': (valid & visible)[search_ids, ...],
+                          'nlp': template_anno.nlp})
 
             if self.processing:
                 try:
@@ -134,5 +135,39 @@ class VideoDatasetProxy(Dataset):
 
             return [static_template, online_template[0]], [search]
 
-def collate_fn():
-    pass
+
+def collate_fn(batch):
+    dict_batch = edict()
+    dict_batch.template_frames = []
+    dict_batch.template_bbox = []
+    dict_batch.template_visible = []
+    dict_batch.search_frames = []
+    dict_batch.search_bbox = []
+    dict_batch.search_visible = []
+    dict_batch.nlp = edict()
+    dict_batch.nlp.input_ids = []
+    dict_batch.nlp.token_type_ids = []
+    dict_batch.nlp.attention_mask = []
+
+    for sample in batch:
+        dict_batch.template_frames.append(sample.template_frames)
+        dict_batch.template_bbox.append(sample.template_bbox)
+        dict_batch.template_visible.append(sample.template_visible)
+        dict_batch.search_frames.append(sample.search_frames)
+        dict_batch.search_bbox.append(sample.search_bbox)
+        dict_batch.search_visible.append(sample.search_visible)
+        dict_batch.nlp.input_ids.append(sample.nlp.input_ids)
+        dict_batch.nlp.token_type_ids.append(sample.nlp.token_type_ids)
+        dict_batch.nlp.attention_mask.append(sample.nlp.attention_mask)
+
+    dict_batch.template_frames = torch.stack(dict_batch.template_frames)
+    dict_batch.template_bbox = torch.stack(dict_batch.template_bbox)
+    dict_batch.template_visible = torch.stack(dict_batch.template_visible)
+    dict_batch.search_frames = torch.stack(dict_batch.search_frames)
+    dict_batch.search_bbox = torch.stack(dict_batch.search_bbox)
+    dict_batch.search_visible = torch.stack(dict_batch.search_visible)
+    dict_batch.nlp.input_ids = torch.stack(dict_batch.nlp.input_ids)
+    dict_batch.nlp.token_type_ids = torch.stack(dict_batch.nlp.token_type_ids)
+    dict_batch.nlp.attention_mask = torch.stack(dict_batch.nlp.attention_mask)
+
+    return dict_batch
