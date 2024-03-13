@@ -170,4 +170,14 @@ def collate_fn(batch):
     dict_batch.nlp.token_type_ids = torch.stack(dict_batch.nlp.token_type_ids)
     dict_batch.nlp.attention_mask = torch.stack(dict_batch.nlp.attention_mask)
 
+    # Final shapes of dict_batch.
+    # {'template_frames': (batch, n, c, h, w),
+    #  'template_bbox': (batch, n, xywh),
+    #  'template_visible': (batch, n),
+    #  'search_frames': (batch, n, c, h, w),
+    #  'search_bbox': (batch, n, xywh),
+    #  'search_visible': (batch, n),
+    #  'nlp': {'input_ids': (batch, n, max_length),
+    #          'token_type_ids': (batch, n, max_length),
+    #          'attention_mask': (batch, n, max_length)}}
     return dict_batch
