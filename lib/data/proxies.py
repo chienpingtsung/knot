@@ -166,9 +166,9 @@ def collate_fn(batch):
     dict_batch.search_frames = torch.stack(dict_batch.search_frames)
     dict_batch.search_bbox = torch.stack(dict_batch.search_bbox)
     dict_batch.search_visible = torch.stack(dict_batch.search_visible)
-    dict_batch.nlp.input_ids = torch.stack(dict_batch.nlp.input_ids)
-    dict_batch.nlp.token_type_ids = torch.stack(dict_batch.nlp.token_type_ids)
-    dict_batch.nlp.attention_mask = torch.stack(dict_batch.nlp.attention_mask)
+    dict_batch.nlp.input_ids = torch.cat(dict_batch.nlp.input_ids)
+    dict_batch.nlp.token_type_ids = torch.cat(dict_batch.nlp.token_type_ids)
+    dict_batch.nlp.attention_mask = torch.cat(dict_batch.nlp.attention_mask)
 
     # Final shapes of dict_batch.
     # {'template_frames': (batch, n, c, h, w),
