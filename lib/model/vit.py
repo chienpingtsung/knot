@@ -59,6 +59,7 @@ class Encoder(nn.Module):
 
 class VisionTransformer(models.VisionTransformer):
     def __init__(self,
+                 nlp_max_length=64,
                  img_size_t=128, img_size_s=288,
                  patch_size=16,
                  in_chans=3,
@@ -107,6 +108,7 @@ class VisionTransformer(models.VisionTransformer):
                                                  norm_layer,
                                                  act_layer) for i in range(depth)])
 
+        self.nlp_max_length = nlp_max_length
         self.patch_num_t = img_size_t // patch_size
         self.patch_num_s = img_size_s // patch_size
         self.seq_len_t = self.patch_num_t ** 2
@@ -121,16 +123,16 @@ class VisionTransformer(models.VisionTransformer):
             self.init_weights(weight_init)
 
     def forward(self, x):
-        x_t, x_s = x
+        x_nlp, x_t, x_s = x
         x_t = self.patch_embed(x_t) + self.pos_embed_t
         x_s = self.patch_embed(x_s) + self.pos_embed_s
-        x = torch.cat([x_t, x_s], dim=1)
+        x = torch.cat([x_nlp, x_t, x_s], dim=1)
         x = self.pos_drop(x)
 
         x = self.encoders(x)
 
-        x_t, x_s = torch.split(x, [self.seq_len_t, self.seq_len_s], dim=1)
+        x_nlp, x_t, x_s = torch.split(x, [self.nlp_max_length, self.seq_len_t, self.seq_len_s], dim=1)
         x_t = rearrange(x_t, 'b (h w) c -> b c h w', h=self.patch_num_t, w=self.patch_num_t)
         x_s = rearrange(x_s, 'b (h w) c -> b c h w', h=self.patch_num_s, w=self.patch_num_s)
 
-        return x_t, x_s
+        return x_nlp, x_t, x_s
