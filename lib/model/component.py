@@ -85,8 +85,8 @@ class CornerPredictor(nn.Module):
         self.conv_5 = nn.Conv2d(in_ch // 16, 2, kernel_size=1)
 
         index = torch.arange(patch_num) * patch_size
-        self.coord_x = repeat(index, 'x -> (repeat x)', repeat=patch_num)
-        self.coord_y = repeat(index, 'y -> (y repeat)', repeat=patch_num)
+        self.coord_x = nn.Parameter(repeat(index, 'x -> (repeat x)', repeat=patch_num), requires_grad=False)
+        self.coord_y = nn.Parameter(repeat(index, 'y -> (y repeat)', repeat=patch_num), requires_grad=False)
 
     def softmax(self, x):
         x = rearrange(x, 'b c h w -> b (c h w)')
