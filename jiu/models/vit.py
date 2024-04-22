@@ -67,6 +67,8 @@ class VisionTransformer(nn.Module):
 
         norm_layer = norm_layer or partial(nn.LayerNorm, eps=1e-6)
 
+        self.num_classes = num_classes
+
         self.patch_embed = PatchEmbed(patch_size, in_chans, embed_dim)
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim)) if class_token else None
         h = w = img_size // patch_size
@@ -84,8 +86,8 @@ class VisionTransformer(nn.Module):
                                                mlp_layer=mlp_layer,
                                                act_layer=act_layer) for i in range(depth)])
 
-        self.norm = norm_layer(embed_dim) if num_classes else nn.Identity()
-        self.head = nn.Linear(embed_dim, num_classes) if num_classes else nn.Identity()
+        self.norm = norm_layer(embed_dim) if num_classes else None
+        self.head = nn.Linear(embed_dim, num_classes) if num_classes else None
 
     def forward(self, x):
         b, c, h, w = x.shape
@@ -97,7 +99,8 @@ class VisionTransformer(nn.Module):
 
         x = self.blocks(x)
 
-        x = self.norm(x)
-        x = self.head(x)
+        if self.num_classes:
+            x = self.norm(x)
+            x = self.head(x[:, 0, ...])
 
         return x
