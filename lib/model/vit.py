@@ -2,59 +2,11 @@ from functools import partial
 
 import torch
 from einops import rearrange
-from timm import layers, models
+from timm import models
 from torch import nn
 
-from lib.model.component import PatchEmbed, two_dim_sincos_pos_emb
-
-
-class Attention(nn.Module):
-    def __init__(self, dim, num_heads=8, qkv_bias=False, attn_drop=0, proj_drop=0):
-        super().__init__()
-
-        assert dim % num_heads == 0, 'Attention dim should be divisible by num_heads.'
-
-        self.num_heads = num_heads
-        self.scale = (dim // num_heads) ** -0.5
-
-        self.qkv = nn.Linear(dim, 3 * dim, bias=qkv_bias)
-        self.attn_drop = nn.Dropout(attn_drop)
-        self.proj = nn.Linear(dim, dim)
-        self.proj_drop = nn.Dropout(proj_drop)
-
-    def forward(self, x):
-        x = self.qkv(x)
-        x = rearrange(x, 'b s (qkv head c) -> qkv b head s c', qkv=3, head=self.num_heads)
-        q, k, v = torch.unbind(x)
-
-        attn = (q @ k.transpose(-1, -2)) * self.scale
-        attn = attn.softmax(-1)
-        attn = self.attn_drop(attn)
-        x = attn @ v
-
-        x = rearrange(x, 'b head s c -> b s (head c)')
-        x = self.proj(x)
-        x = self.proj_drop(x)
-        return x
-
-
-class Encoder(nn.Module):
-    def __init__(self, dim, num_heads=8, qkv_bias=False, attn_drop=0, proj_drop=0, path_drop=0, mlp_ratio=4,
-                 norm_layer=nn.LayerNorm, act_layer=nn.GELU, attn_layer=Attention):
-        super().__init__()
-
-        self.norm_1 = norm_layer(dim)
-        self.attn = attn_layer(dim, num_heads, qkv_bias, attn_drop, proj_drop)
-        self.pdrp_1 = layers.DropPath(path_drop) if path_drop > 0 else nn.Identity()
-
-        self.norm_2 = norm_layer(dim)
-        self.mlp = layers.Mlp(dim, int(dim * mlp_ratio), act_layer=act_layer, drop=proj_drop)
-        self.pdrp_2 = layers.DropPath(path_drop) if path_drop > 0 else nn.Identity()
-
-    def forward(self, x):
-        x = x + self.pdrp_1(self.attn(self.norm_1(x)))
-        x = x + self.pdrp_2(self.mlp(self.norm_2(x)))
-        return x
+from jiu.models.emb import PatchEmbed, two_dim_sincos_pos_emb
+from jiu.models.vit import Block
 
 
 class VisionTransformer(models.VisionTransformer):
@@ -76,7 +28,7 @@ class VisionTransformer(models.VisionTransformer):
                  embed_layer=PatchEmbed,
                  norm_layer=None,
                  act_layer=None,
-                 block_fn=Encoder):
+                 block_fn=Block):
         super().__init__(patch_size=patch_size,
                          in_chans=in_chans,
                          embed_dim=embed_dim,
