@@ -93,7 +93,7 @@ class VisionTransformer(nn.Module):
         b, c, h, w = x.shape
 
         x = self.patch_embed(x)
-        if self.cls_token:
+        if self.cls_token is not None:
             x = torch.cat([self.cls_token.expand(b, -1, -1), x], dim=1)
         x = x + self.pos_embed
 
