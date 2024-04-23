@@ -90,7 +90,7 @@ class VisionTransformer(nn.Module):
         self.head = nn.Linear(embed_dim, num_classes) if num_classes else None
 
     def forward(self, x):
-        b, c, h, w = x.shape
+        b, *_ = x.shape
 
         x = self.patch_embed(x)
         if self.cls_token is not None:
