@@ -36,10 +36,11 @@ def two_dim_sincos_pos_emb(emb_dim, h, w, class_token=False):
 
 
 class PatchEmbed(nn.Module):
-    def __init__(self, patch_size=16, in_channels=3, emb_dim=768, norm_layer=None, flatten=True):
+    def __init__(self, patch_size=16, in_channels=3, emb_dim=768, norm_layer=None, flatten=True, output_fmt=None):
         super().__init__()
 
         self.flatten = flatten
+        self.output_fmt = output_fmt
 
         self.proj = nn.Conv2d(in_channels, emb_dim, patch_size, patch_size)
         self.norm = norm_layer(emb_dim) if norm_layer else nn.Identity()
@@ -49,6 +50,8 @@ class PatchEmbed(nn.Module):
 
         if self.flatten:
             x = einops.rearrange(x, 'b c h w -> b (h w) c')
+        elif self.output_fmt:
+            x = einops.rearrange(x, f'b c h w -> {self.output_fmt}')
 
         x = self.norm(x)
 
