@@ -69,7 +69,7 @@ class VisionTransformer(nn.Module):
 
         self.num_classes = num_classes
 
-        self.patch_embed = PatchEmbed(patch_size, in_chans, embed_dim)
+        self.patch_embed = PatchEmbed(patch_size, in_chans, embed_dim, 'b (h w) c')
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim)) if class_token else None
         h = w = img_size // patch_size
         self.pos_embed = nn.Parameter(two_dim_sincos_pos_emb(embed_dim, h, w, class_token))
