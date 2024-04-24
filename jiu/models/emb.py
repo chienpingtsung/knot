@@ -36,13 +36,13 @@ def two_dim_sincos_pos_emb(emb_dim, h, w, class_token=False):
 
 
 class PatchEmbed(nn.Module):
-    def __init__(self, patch_size=16, in_channels=3, emb_dim=768, norm_layer=None, output_fmt=None):
+    def __init__(self, patch_size=16, in_chans=3, embed_dim=768, norm_layer=None, output_fmt='b (h w) c'):
         super().__init__()
 
         self.output_fmt = output_fmt
 
-        self.proj = nn.Conv2d(in_channels, emb_dim, patch_size, patch_size)
-        self.norm = norm_layer(emb_dim) if norm_layer else nn.Identity()
+        self.proj = nn.Conv2d(in_chans, embed_dim, patch_size, patch_size)
+        self.norm = norm_layer(embed_dim) if norm_layer else nn.Identity()
 
     def forward(self, x):
         x = self.proj(x)
