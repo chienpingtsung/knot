@@ -67,7 +67,7 @@ class WindowAttention(nn.Module):
         attn = attn + self._get_rel_pos_bias()
         if mask is not None:
             num_win, *_ = mask.shape
-            attn = attn.view(-1, num_win, self.num_heads, s, s) + mask.unsqueeze(1).unsqueeze(0)
+            attn = attn.view(-1, num_win, self.num_heads, s, s) + mask.unsqueeze(1).unsqueeze(0).to(attn.device)
             attn = attn.view(-1, self.num_heads, s, s)
         attn = attn.softmax(-1)
         attn = self.attn_drop(attn)
