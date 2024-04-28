@@ -6,6 +6,8 @@ import timm
 import torch
 from torch import nn
 
+from jiu.models.emb import PatchEmbed
+
 
 def window_partition(x, win_h, win_w):
     x = einops.rearrange(x, 'b (nwh wh) (nww ww) c -> (b nwh nww) wh ww c', wh=win_h, ww=win_w)
@@ -187,8 +189,103 @@ class PatchMerging(nn.Module):
 
 
 class SwinTransformerStage(nn.Module):
-    def __init__(self):
+    def __init__(self, dim, out_dim, depth, downsample=True, num_heads=4, head_dim=None, window_size=7, drop_path=0,
+                 qkv_bias=True, attn_drop=0, proj_drop=0, mlp_ratio=4, norm_layer=nn.LayerNorm):
         super().__init__()
 
+        shift_size = window_size // 2
+
+        if downsample:
+            self.downsample = PatchMerging(dim=dim, out_dim=out_dim, norm_layer=norm_layer)
+        else:
+            assert dim == out_dim
+            self.downsample = nn.Identity()
+
+        self.blocks = nn.Sequential(*[SwinTransformerBlock(dim=out_dim,
+                                                           num_heads=num_heads,
+                                                           head_dim=head_dim,
+                                                           window_size=window_size,
+                                                           shift_size=0 if (i % 2 == 0) else shift_size,
+                                                           drop_path=drop_path[i] if isinstance(
+                                                               drop_path, (tuple, list)
+                                                           ) else drop_path,
+                                                           qkv_bias=qkv_bias,
+                                                           attn_drop=attn_drop,
+                                                           proj_drop=proj_drop,
+                                                           mlp_ratio=mlp_ratio,
+                                                           norm_layer=norm_layer) for i in range(depth)])
+
     def forward(self, x):
-        pass
+        x = self.downsample(x)
+        x = self.blocks(x)
+        return x
+
+
+class SwinTransformer(nn.Module):
+    def __init__(self, patch_size=4, in_chans=3, num_classes=1000, global_pool='avg', embed_dim=96, depths=(2, 2, 6, 2),
+                 num_heads=(3, 6, 12, 24), head_dim=None, window_size=7, mlp_ratio=4, qkv_bias=True, drop_rate=0,
+                 proj_drop_rate=0, attn_drop_rate=0, drop_path_rate=0.1, embed_layer=PatchEmbed,
+                 norm_layer=nn.LayerNorm, weight_init='', **kwargs):
+        super().__init__()
+
+        self.num_layers = len(depths)
+
+        if not isinstance(embed_dim, (tuple, list)):
+            embed_dim = [int(embed_dim * 2 ** i) for i in range(self.num_layers)]
+
+        self.patch_embed = embed_layer(patch_size=patch_size, in_channels=in_chans, emb_dim=embed_dim[0], flatten=False)
+        self.patch_norm = norm_layer(embed_dim[0])
+
+        if not isinstance(head_dim, (tuple, list)):
+            head_dim = [head_dim] * self.num_layers
+        if not isinstance(window_size, (tuple, list)):
+            window_size = [window_size] * self.num_layers
+        if not isinstance(mlp_ratio, (tuple, list)):
+            mlp_ratio = [mlp_ratio] * self.num_layers
+        dpr = [x.tolist() for x in torch.linspace(0, drop_path_rate, sum(depths)).split(depths)]
+        layers = []
+        in_dim = embed_dim[0]
+        for i in range(self.num_layers):
+            out_dim = embed_dim[i]
+            layers.append(SwinTransformerStage(dim=in_dim,
+                                               out_dim=out_dim,
+                                               depth=depths[i],
+                                               downsample=i > 0,
+                                               num_heads=num_heads[i],
+                                               head_dim=head_dim[i],
+                                               window_size=window_size[i],
+                                               drop_path=dpr[i],
+                                               qkv_bias=qkv_bias,
+                                               attn_drop=attn_drop_rate,
+                                               proj_drop=proj_drop_rate,
+                                               mlp_ratio=mlp_ratio[i],
+                                               norm_layer=norm_layer))
+            in_dim = out_dim
+        self.layers = nn.Sequential(*layers)
+
+        self.norm = norm_layer(embed_dim[-1])
+        self.head = timm.layers.ClassifierHead(embed_dim[-1],
+                                               num_classes,
+                                               pool_type=global_pool,
+                                               drop_rate=drop_rate,
+                                               input_fmt='NHWC')
+
+    def forward(self, x):
+        x = self.patch_embed(x)
+        x = einops.rearrange(x, 'b c h w -> b h w c')
+        x = self.patch_norm(x)
+
+        x = self.layers(x)
+
+        x = self.norm(x)
+        x = self.head(x)
+
+        return x
+
+    @torch.jit.ignore
+    def no_weight_decay(self):
+        nwd = set()
+        for n, _ in self.named_parameters():
+            if 'relative_position_bias_table' in n:
+                nwd.add(n)
+        return nwd
