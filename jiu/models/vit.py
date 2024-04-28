@@ -42,8 +42,10 @@ class Attention(nn.Module):
 
 class Block(nn.Module):
     def __init__(self, dim, num_heads=8, qkv_bias=False, attn_drop=0, proj_drop=0, drop_path=0, mlp_ratio=4,
-                 norm_layer=nn.LayerNorm, mlp_layer=timm.layers.Mlp, act_layer=nn.GELU):
+                 norm_layer=nn.LayerNorm, mlp_layer=timm.layers.Mlp, act_layer=nn.GELU, norm_first=True):
         super().__init__()
+
+        self.norm_first = norm_first
 
         self.norm1 = norm_layer(dim)
         self.attn = Attention(dim, num_heads, qkv_bias, attn_drop, proj_drop)
@@ -54,8 +56,12 @@ class Block(nn.Module):
         self.drop_path2 = timm.layers.DropPath(drop_path) if drop_path > 0 else nn.Identity()
 
     def forward(self, x):
-        x = x + self.drop_path1(self.attn(self.norm1(x)))
-        x = x + self.drop_path2(self.mlp(self.norm2(x)))
+        if self.norm_first:
+            x = x + self.drop_path1(self.attn(self.norm1(x)))
+            x = x + self.drop_path2(self.mlp(self.norm2(x)))
+        else:
+            x = self.norm1(x + self.drop_path1(self.attn(x)))
+            x = self.norm2(x + self.drop_path2(self.attn(x)))
         return x
 
 
