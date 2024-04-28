@@ -104,3 +104,7 @@ class VisionTransformer(nn.Module):
             x = self.head(x[:, 0, ...])
 
         return x
+
+    @torch.jit.ignore
+    def no_weight_decay(self):
+        return {'pos_embed', 'cls_token'}
